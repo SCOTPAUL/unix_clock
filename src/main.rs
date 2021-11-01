@@ -4,10 +4,13 @@ extern crate opengl_graphics;
 extern crate piston;
 
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{GlGraphics, OpenGL};
+use opengl_graphics::{GlGraphics, OpenGL, GlyphCache};
+use opengl_graphics::*;
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
-use piston::window::WindowSettings;
+use piston::window::*;
+use graphics::character::*;
+use crate::graphics::Transformed;
 
 
 struct ClockFace {
@@ -19,11 +22,18 @@ impl ClockFace {
         ClockFace { clock_circle_coords: [0.0, 0.0, window_size[0], window_size[1]] }
     }
 
-    fn draw(&self, c: &graphics::Context, gl: &mut GlGraphics){
+    fn draw(&self, c: &graphics::Context, gl: &mut GlGraphics, characterCache: &mut GlyphCache){
+
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
         let ellipse = graphics::Ellipse::new_border(RED, 5.0);
         ellipse.draw(self.clock_circle_coords, &c.draw_state, c.transform, gl);
+
+        for i in 0..10 {
+            let transform = c.transform.trans(100.0, 200.0);
+            graphics::text(RED, 10, "t", characterCache, transform, gl);
+
+        }
     }
 
 }
@@ -35,7 +45,6 @@ struct ClockHand {
 
 impl ClockHand {
     fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics){
-        use crate::graphics::Transformed;
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
         let line = graphics::Line::new(RED, ((self.position + 1) * 20).into());
@@ -69,8 +78,8 @@ impl Clock {
         Clock { clock_face: clock_face, clock_hands: clock_hands }
     }
 
-    fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics) {
-        self.clock_face.draw(c, gl);
+    fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics, characterCache: &mut GlyphCache) {
+        self.clock_face.draw(c, gl, characterCache);
         for hand in &self.clock_hands {
             hand.draw(window_size, c, gl);
         }
@@ -82,18 +91,19 @@ pub struct App {
 }
 
 impl App {
-    fn render(&mut self, args: &RenderArgs) {
+    fn render(&mut self, args: &RenderArgs, window: &Window) {
         use graphics::*;
 
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
+        let mut glyph_cache = GlyphCache::new("assets/FiraSans-Regular.ttf", (), TextureSettings::new()).unwrap();
         let clock = Clock::new(&args.window_size);
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
             clear(BLACK, gl);
 
-            clock.draw(&args.window_size, &c, gl);
+            clock.draw(&args.window_size, &c, gl, &mut glyph_cache);
 
             // Draw a box rotating around the middle of the screen.
             //rectangle(RED, square, transform, gl);
@@ -127,7 +137,7 @@ fn main() {
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         if let Some(args) = e.render_args() {
-            app.render(&args);
+            app.render(&args, &window);
         }
 
         if let Some(args) = e.update_args() {
