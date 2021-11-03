@@ -41,7 +41,7 @@ impl ClockFace {
 
             let transform = c.transform.trans(pos_x, pos_y);
 
-            graphics::text(RED, 10, &format!("{}", i), character_cache, transform, gl);            
+            graphics::text(RED, 20, &format!("{}", i), character_cache, transform, gl);            
         }
     }
 
@@ -149,7 +149,11 @@ fn main() {
         gl: GlGraphics::new(opengl)
     };
 
-    let mut events = Events::new(EventSettings::new());
+    let mut event_settings = EventSettings::new();
+    event_settings.max_fps = 5;
+    event_settings.ups = 5;
+
+    let mut events = Events::new(event_settings);
     while let Some(e) = events.next(&mut window) {
         if let Some(args) = e.render_args() {
             app.render(&args, &window);
