@@ -9,9 +9,8 @@ use opengl_graphics::*;
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::*;
-use graphics::character::*;
 use crate::graphics::Transformed;
-
+use std::time::{Duration, SystemTime};
 
 struct ClockFace {
     clock_circle_coords: [f64; 4]
@@ -22,17 +21,27 @@ impl ClockFace {
         ClockFace { clock_circle_coords: [0.0, 0.0, window_size[0], window_size[1]] }
     }
 
-    fn draw(&self, c: &graphics::Context, gl: &mut GlGraphics, characterCache: &mut GlyphCache){
+    fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics, character_cache: &mut GlyphCache){
 
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
         let ellipse = graphics::Ellipse::new_border(RED, 5.0);
         ellipse.draw(self.clock_circle_coords, &c.draw_state, c.transform, gl);
 
-        for i in 0..10 {
-            let transform = c.transform.trans(100.0, 200.0);
-            graphics::text(RED, 10, "t", characterCache, transform, gl);
+        let centre_x = window_size[0] / 2.0;
+        let centre_y = window_size[1] / 2.0;
+        let radius = (window_size[0] / 2.0) - 20.0;
 
+        for i in 0..10 {
+
+            let angle_rad = (36.0 * i as f64).to_radians();
+
+            let pos_x = centre_x + radius * angle_rad.sin();
+            let pos_y = centre_y - radius * angle_rad.cos();
+
+            let transform = c.transform.trans(pos_x, pos_y);
+
+            graphics::text(RED, 10, &format!("{}", i), character_cache, transform, gl);            
         }
     }
 
@@ -47,14 +56,20 @@ impl ClockHand {
     fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics){
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
-        let line = graphics::Line::new(RED, ((self.position + 1) * 20).into());
+        let value_at_posn = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs().to_string().chars().nth(self.position.into()).unwrap();
 
-        let transform = c
-                .transform
-                .trans(window_size[0] / 2.0, window_size[1] / 2.0)
-                .rot_rad((self.position as f64 * 20.0).to_radians());
+        let line = graphics::Line::new(RED, 2.5);
 
-        line.draw([0.0, 0.0, 5.0, 5.0], &c.draw_state, transform, gl);
+        let centre_x = window_size[0] / 2.0;
+        let centre_y = window_size[1] / 2.0;
+        let radius = self.position as f64 * 20.0 + 50.0;
+
+        let angle_rad = (36.0 * value_at_posn.to_digit(10).unwrap() as f64).to_radians();
+
+        let pos_x = centre_x + radius * angle_rad.sin();
+        let pos_y = centre_y - radius * angle_rad.cos();
+
+        line.draw_from_to([centre_x, centre_y], [pos_x, pos_y], &c.draw_state, c.transform, gl);//([0.0, 0.0, 5.0, 5.0], &c.draw_state, transform, gl);
 
     }
 }
@@ -78,8 +93,8 @@ impl Clock {
         Clock { clock_face: clock_face, clock_hands: clock_hands }
     }
 
-    fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics, characterCache: &mut GlyphCache) {
-        self.clock_face.draw(c, gl, characterCache);
+    fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics, character_cache: &mut GlyphCache) {
+        self.clock_face.draw(window_size, c, gl, character_cache);
         for hand in &self.clock_hands {
             hand.draw(window_size, c, gl);
         }
