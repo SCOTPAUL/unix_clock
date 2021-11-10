@@ -56,7 +56,27 @@ impl ClockHand {
     fn draw(&self, window_size: &[f64; 2], c: &graphics::Context, gl: &mut GlGraphics){
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
-        let value_at_posn = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs().to_string().chars().nth(self.position.into()).unwrap();
+        let epoch_millis = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .to_string();
+
+        let mut epoch_chars = epoch_millis.chars();
+
+        let value_at_posn = epoch_chars
+            .nth(self.position.into())
+            .unwrap().to_digit(10).unwrap() as f64;
+
+        let val_at_next_posn = epoch_chars
+            // previous items are already consumed
+            .nth(0)
+            .unwrap().to_digit(10).unwrap() as f64;
+
+        // sorry, can't be bothered to do this properly
+        let val_at_next_next_posn = epoch_chars
+            // previous items are already consumed
+            .nth(0)
+            .unwrap().to_digit(10).unwrap() as f64;
 
         let line = graphics::Line::new(RED, 2.5);
 
@@ -64,12 +84,12 @@ impl ClockHand {
         let centre_y = window_size[1] / 2.0;
         let radius = self.position as f64 * 20.0 + 50.0;
 
-        let angle_rad = (36.0 * value_at_posn.to_digit(10).unwrap() as f64).to_radians();
+        let angle_rad = (36.0 * value_at_posn + 3.6 * val_at_next_posn + 0.36 * val_at_next_next_posn).to_radians();
 
         let pos_x = centre_x + radius * angle_rad.sin();
         let pos_y = centre_y - radius * angle_rad.cos();
 
-        line.draw_from_to([centre_x, centre_y], [pos_x, pos_y], &c.draw_state, c.transform, gl);//([0.0, 0.0, 5.0, 5.0], &c.draw_state, transform, gl);
+        line.draw_from_to([centre_x, centre_y], [pos_x, pos_y], &c.draw_state, c.transform, gl);
 
     }
 }
@@ -106,7 +126,7 @@ pub struct App {
 }
 
 impl App {
-    fn render(&mut self, args: &RenderArgs, window: &Window) {
+    fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
 
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
@@ -119,17 +139,10 @@ impl App {
             clear(BLACK, gl);
 
             clock.draw(&args.window_size, &c, gl, &mut glyph_cache);
-
-            // Draw a box rotating around the middle of the screen.
-            //rectangle(RED, square, transform, gl);
-            //line(RED, 3.0, [0.0, 0.0, 15.0, 15.0], transform, gl);
-            //line(RED, 5.0, [0.0, 0.0, -25.0, -25.0], transform, gl);
-
         });
     }
 
     fn update(&mut self, args: &UpdateArgs) {
-        // Rotate 2 radians per second.
     }
 }
 
@@ -141,6 +154,8 @@ fn main() {
     let mut window: Window = WindowSettings::new("unix_clock", [500, 500])
         .graphics_api(opengl)
         .exit_on_esc(true)
+        .samples(8)
+        .resizable(false)
         .build()
         .unwrap();
 
@@ -150,13 +165,13 @@ fn main() {
     };
 
     let mut event_settings = EventSettings::new();
-    event_settings.max_fps = 5;
-    event_settings.ups = 5;
+    event_settings.max_fps = 60;
+    event_settings.ups = 60;
 
     let mut events = Events::new(event_settings);
     while let Some(e) = events.next(&mut window) {
         if let Some(args) = e.render_args() {
-            app.render(&args, &window);
+            app.render(&args);
         }
 
         if let Some(args) = e.update_args() {
